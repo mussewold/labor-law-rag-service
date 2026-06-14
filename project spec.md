@@ -97,13 +97,3 @@ rag-service/
 ```
 
 ---
-
-## Start Right Now With
-
-```bash
-docker run -e POSTGRES_PASSWORD=postgres -p 5432:5432 pgvector/pgvector:pg16
-```
-
-Then run the schema SQL, download your corpus, and write `chunker.py`. That's your day-one target — ingestion working end-to-end with chunks in the DB.
-
-Want me to write the starting code for the chunker or the hybrid search SQL?

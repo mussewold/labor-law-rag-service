@@ -1,8 +1,6 @@
 import tiktoken
 from dataclasses import dataclass
-
-CHUNK_SIZE = 500      # tokens
-OVERLAP    = 50       # tokens
+from config import CHUNK_SIZE, CHUNK_OVERLAP
 
 @dataclass
 class Chunk:
@@ -10,7 +8,7 @@ class Chunk:
     chunk_index: int
     token_count: int
 
-def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = OVERLAP) -> list[Chunk]:
+def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[Chunk]:
     enc = tiktoken.get_encoding("cl100k_base")
     tokens = enc.encode(text)
     chunks = []
@@ -27,7 +25,6 @@ def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = OVERLAP) 
             token_count=len(chunk_tokens)
         ))
         index += 1
-        start += chunk_size - overlap  # slide forward with overlap
+        start += chunk_size - overlap
 
-    print(chunks)
     return chunks

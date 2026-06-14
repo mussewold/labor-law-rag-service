@@ -13,10 +13,11 @@ CREATE TABLE chunk (
   content      TEXT NOT NULL,
   chunk_index  INT  NOT NULL,
   token_count  INT  NOT NULL,
-  embedding    vector(1536)
+  embedding    vector(4096)
+  -- NOTE: no ANN index — pgvector HNSW/IVFFlat both cap at 2000 dims
+  -- exact scan is fine for small-medium corpora (<10k chunks)
+  -- options to fix later: reduce dims via PCA, or use a 768/1536-dim model
 );
-
-CREATE INDEX ON chunk USING hnsw (embedding vector_cosine_ops);
 
 ALTER TABLE chunk ADD COLUMN ts tsvector
   GENERATED ALWAYS AS (to_tsvector('english', content)) STORED;

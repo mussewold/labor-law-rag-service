@@ -1,0 +1,92 @@
+[
+  {
+    "id": "q01",
+    "question": "What is the maximum normal working hours per week?",
+    "expected_answer": "48 hours per week",
+    "keywords": ["48", "hours", "week"]
+  },
+  {
+    "id": "q02",
+    "question": "What is the minimum notice period for termination?",
+    "expected_answer": "one month",
+    "keywords": ["one month", "notice"]
+  },
+  {
+    "id": "q03",
+    "question": "How is severance pay calculated?",
+    "expected_answer": "one month salary per year of service",
+    "keywords": ["severance", "month", "year"]
+  },
+  {
+    "id": "q04",
+    "question": "What is the minimum annual leave entitlement?",
+    "expected_answer": "16 working days",
+    "keywords": ["16", "days", "annual leave"]
+  },
+  {
+    "id": "q05",
+    "question": "What is the probation period duration?",
+    "expected_answer": "60 working days",
+    "keywords": ["60", "probation"]
+  },
+  {
+    "id": "q06",
+    "question": "What is the minimum age for employment?",
+    "expected_answer": "14 years",
+    "keywords": ["14", "age"]
+  },
+  {
+    "id": "q07",
+    "question": "How many hours per day is considered normal work?",
+    "expected_answer": "8 hours per day",
+    "keywords": ["8", "hours", "day"]
+  },
+  {
+    "id": "q08",
+    "question": "What is the overtime pay rate?",
+    "expected_answer": "125% of normal wage",
+    "keywords": ["overtime", "125", "rate"]
+  },
+  {
+    "id": "q09",
+    "question": "What are the grounds for termination without notice?",
+    "expected_answer": "serious misconduct",
+    "keywords": ["misconduct", "termination", "without notice"]
+  },
+  {
+    "id": "q10",
+    "question": "What is the maternity leave entitlement?",
+    "expected_answer": "120 days",
+    "keywords": ["120", "maternity"]
+  },
+  {
+    "id": "q11",
+    "question": "Can an employer terminate a pregnant worker?",
+    "expected_answer": "No",
+    "keywords": ["pregnant", "terminate"]
+  },
+  {
+    "id": "q12",
+    "question": "What is the weekly rest period entitlement?",
+    "expected_answer": "24 consecutive hours",
+    "keywords": ["24", "rest", "weekly"]
+  },
+  {
+    "id": "q13",
+    "question": "What is the penalty for employing a child under minimum age?",
+    "expected_answer": "fine or imprisonment",
+    "keywords": ["penalty", "fine", "child"]
+  },
+  {
+    "id": "q14",
+    "question": "How many public holidays are workers entitled to?",
+    "expected_answer": "public holidays recognized by law",
+    "keywords": ["public holiday", "entitled"]
+  },
+  {
+    "id": "q15",
+    "question": "What notice must an employer give before collective dismissal?",
+    "expected_answer": "30 days",
+    "keywords": ["30", "collective", "dismissal"]
+  }
+]
