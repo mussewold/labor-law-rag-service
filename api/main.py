@@ -1,3 +1,5 @@
+import psycopg, os
+import time
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -66,7 +68,7 @@ class VerboseResponse(BaseModel):
 
 def resolve_citations(cited: list[str], chunks: list[dict]) -> list[Citation]:
     """Map the chunk IDs the LLM cited back to their content + parent document.
-    Resolves against the reranked chunks already in hand, so a hallucinated ID
+    Resolves against the reranked chunks already in hand, so a hallucinated ID(if any)
     (one not actually retrieved) is dropped rather than surfaced."""
     norm = set()
     for c in cited:
@@ -78,7 +80,6 @@ def resolve_citations(cited: list[str], chunks: list[dict]) -> list[Citation]:
     if not picked:
         return []
 
-    import psycopg, os
     doc_ids = list({c["document_id"] for c in picked})
     docs: dict[str, tuple] = {}
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
@@ -121,7 +122,6 @@ def ingest(req: IngestRequest):
     try:
         doc_id = ingest_document(req.title, req.source, req.text)
         # count chunks for response
-        import psycopg, os
         with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT COUNT(*) FROM chunk WHERE document_id = %s", (doc_id,))
@@ -134,7 +134,6 @@ def ingest(req: IngestRequest):
 @app.delete("/documents/{doc_id}", response_model=DeleteResponse)
 def delete_document(doc_id: str):
     """Remove a document and its chunks. Recovery path for a mistaken ingest."""
-    import psycopg, os
     try:
         with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
             with conn.cursor() as cur:
@@ -171,7 +170,6 @@ def query(req: QueryRequest):
 
 @app.post("/query/verbose", response_model=VerboseResponse)
 def query_verbose(req: QueryRequest):
-    import time
     try:
         t0 = time.perf_counter()
         candidates = retrieve(req.question, k=req.retrieval_k)

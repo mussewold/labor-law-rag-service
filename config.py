@@ -15,7 +15,6 @@ GENERATION_MODEL = "openai/gpt-4o-mini"
 GENERATION_MODEL_FALLBACK = "meta-llama/llama-3.3-70b-instruct:free"
 
 # Gemini embedding
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
 EMBEDDING_DIM = 4096
 
