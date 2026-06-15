@@ -164,10 +164,31 @@
     max-width: 68ch; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty;
   }
   .citations { margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border); }
-  .cite-chip {
-    display: inline-block; background: var(--panel-2); border: 1px solid var(--border);
-    padding: 3px 8px; border-radius: 6px; margin: 0 6px 6px 0;
-    font-size: var(--text-sm); color: var(--muted); font-family: var(--font-mono); overflow-wrap: anywhere;
+  /* A citation: source attribution + a collapsed preview of the quoted chunk,
+     expandable to the full text. Divider-separated (like the verbose chunk
+     list), not a nested card inside the answer panel. */
+  .cite { padding: var(--space-sm) 0; border-top: 1px solid var(--border); }
+  .cite:first-of-type { border-top: none; }
+  .cite > summary { list-style: none; cursor: pointer; display: block; }
+  .cite > summary::-webkit-details-marker { display: none; }
+  .cite-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs) var(--space-xs);
+    font-size: var(--text-sm); color: var(--text);
+  }
+  .cite-head .doc { font-weight: 600; }
+  .cite-head .src { color: var(--muted); }
+  .cite-head .pos { color: var(--muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+  .cite-head .toggle { margin-left: auto; color: var(--accent); font-weight: 500; white-space: nowrap; }
+  .cite:not([open]) .cite-head .toggle::after { content: "Show more"; }
+  .cite[open] .cite-head .toggle::after { content: "Show less"; }
+  .cite-preview {
+    display: block; margin-top: var(--space-2xs); color: var(--muted);
+    font-family: var(--font-serif); font-size: var(--text-sm); line-height: 1.5; overflow-wrap: anywhere;
+  }
+  .cite[open] .cite-preview { display: none; }
+  .cite-body {
+    margin: var(--space-2xs) 0 0; font-family: var(--font-serif); font-size: var(--text-base); line-height: 1.55;
+    max-width: 68ch; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty;
   }
   .empty {
     margin-top: var(--space-lg); padding: var(--space-xl) var(--space-md); text-align: center; color: var(--muted);
@@ -456,6 +477,23 @@ function chunkHtml(c, i) {
     <div class="chunk-text">${esc(c.preview)}</div>
   </div>`;
 }
+function citeHtml(c) {
+  const doc = c.document_title || c.source || "Unknown source";
+  const src = c.source && c.document_title ? `<span class="src">${esc(c.source)}</span>` : "";
+  const flat = String(c.content).replace(/\s+/g, " ").trim();
+  const preview = flat.length > 160 ? flat.slice(0, 160) + "…" : flat;
+  return `<details class="cite">
+    <summary>
+      <span class="cite-head">
+        <span class="doc">${esc(doc)}</span>${src}
+        <span class="pos">chunk ${esc(c.chunk_index)}</span>
+        <span class="toggle" aria-hidden="true"></span>
+      </span>
+      <span class="cite-preview">${esc(preview)}</span>
+    </summary>
+    <blockquote class="cite-body">${esc(c.content)}</blockquote>
+  </details>`;
+}
 function step(num, title, meta, bodyHtml, open) {
   return `<div class="step${open ? " open" : ""}">
     <button class="step-head" aria-expanded="${open}"><span class="num" aria-hidden="true">${num}</span><span class="caret" aria-hidden="true">▶</span>Step ${num}: ${title}
@@ -511,7 +549,7 @@ async function ask() {
     $("ans-text").textContent = d.answer;
     const cites = d.citations || [];
     $("cites").innerHTML = cites.length
-      ? "<h3>Citations</h3>" + cites.map(c => `<span class="cite-chip">${esc(c)}</span>`).join("")
+      ? "<h3>Citations</h3>" + cites.map(citeHtml).join("")
       : '<span class="hint">No citations returned.</span>';
     $("ans").classList.add("show");
   } catch (e) {
