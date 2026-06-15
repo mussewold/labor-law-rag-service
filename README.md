@@ -1,7 +1,7 @@
 # Labour Law RAG Service
 
-A from-scratch Retrieval-Augmented Generation (RAG) service over a legal corpus
-(the Ethiopian Labour Proclamation). Built without LlamaIndex or LangChain — the
+A from-scratch Standard Retrieval-Augmented Generation (RAG) service over a legal corpus
+(the Ethiopian Labour Proclamation). Built without LlamaIndex or LangChain, the
 entire pipeline is plain Python functions backed by **PostgreSQL + pgvector**.
 
 It combines **hybrid retrieval** (dense vector search + keyword full-text search,
@@ -16,7 +16,6 @@ that answers strictly from retrieved context and cites the chunks it used.
 
 
 
----
 
 ## Features
 
@@ -36,9 +35,9 @@ that answers strictly from retrieved context and cites the chunks it used.
 ## Architecture
 
 ```
-                    ┌──────────────────────────── api/main.py (FastAPI) ────────────────────────────┐
+                    ┌──────────────────────────── api/main.py (FastAPI) ─────────────────────────────┐
                     │                                                                                │
-  POST /documents ──┼──> ingest_document() ──> chunker ──> embedder ──> Postgres (document, chunk)   │
+  POST /documents ──┼──> ingest_document() ──> chunker ──> embedder ──> pgvector (document, chunk)   │
                     │                                                                                │
   POST /query ──────┼──> retrieve() ──> rerank() ──> generate_answer() ──> {answer, citations}       │
                     │        │                                                                       │
@@ -76,7 +75,6 @@ that answers strictly from retrieved context and cites the chunks it used.
 - **[uv](https://github.com/astral-sh/uv)** (recommended) or `pip`
 - API keys:
   - `OPENROUTER_API_KEY` — used for embeddings, reranking, and generation
-  - `GEMINI_API_KEY` — currently read at startup but unused by the pipeline; must still be set
 
 ---
 
@@ -104,7 +102,6 @@ cp .example.env .env
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/ragdb
 OPENROUTER_API_KEY=sk-or-...
-GEMINI_API_KEY=your_key_here
 ```
 
 ### 3. Start the database
@@ -136,11 +133,19 @@ psql "$DATABASE_URL" -f db/schema.sql
 uv run uvicorn api.main:app --reload
 ```
 
+### User Interface
+
+To access the user interface go to `http://localhost:8000`
+
+
+### The API
+
 The API is now at `http://127.0.0.1:8000` (interactive docs at `/docs`).
 
-### Ingest a document
 
-There is no standalone ingestion CLI — ingest through the API. To load the bundled
+### Ingest a document via API
+
+Ingest through the API. To load the bundled
 corpus (`data/labour_proclamation.md`):
 
 ```bash
@@ -158,7 +163,7 @@ Response:
 > You can also call `ingest.ingestor.ingest_document(title, source, text)` directly
 > from a Python shell if you prefer.
 
-### Query
+### Query via API
 
 ```bash
 curl -X POST http://127.0.0.1:8000/query \
@@ -187,8 +192,8 @@ curl http://127.0.0.1:8000/health   # -> {"status": "ok"}
 
 ## Evaluation
 
-The eval harness measures **retrieval hit-rate** — whether the chunk containing the
-expected answer appears in the top-k retrieved results — separately for vector,
+The eval harness measures **retrieval hit-rate**; whether the chunk containing the
+expected answer appears in the top-k retrieved results, separately for vector,
 keyword, and hybrid retrieval. Labeled questions live in `eval/questions.json`.
 
 The database must already be populated (ingest the corpus first):
@@ -232,14 +237,14 @@ All tuning lives in `config.py`:
 > **Changing the embedding model?** Update `EMBEDDING_DIM` **and** the `embedding`
 > column type in `db/schema.sql` together, then re-ingest. Note: `pgvector`'s HNSW/
 > IVFFlat indexes cap at 2000 dims, so the 4096-dim column uses an exact scan (no ANN
-> index) — fine for small/medium corpora (<10k chunks).
+> index) which is fine for small/medium corpora (<10k chunks).
 
 ---
 
 ## Project structure
 
 ```
-rag-1/
+labor-law-rag/
 ├── api/
 │   └── main.py              # FastAPI app: /documents, /query, /health
 ├── ingest/
