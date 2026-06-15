@@ -28,6 +28,10 @@ class IngestResponse(BaseModel):
     doc_id: str
     chunks: int
 
+class DeleteResponse(BaseModel):
+    doc_id: str
+    deleted_chunks: int
+
 class QueryRequest(BaseModel):
     question: str
     retrieval_k: int = RETRIEVAL_K
@@ -68,6 +72,8 @@ def _trace(chunks: list[dict]) -> list[TraceChunk]:
 
 @app.post("/documents", response_model=IngestResponse)
 def ingest(req: IngestRequest):
+    if not req.title.strip() or not req.source.strip() or not req.text.strip():
+        raise HTTPException(status_code=400, detail="title, source, and text are all required.")
     try:
         doc_id = ingest_document(req.title, req.source, req.text)
         # count chunks for response
@@ -77,6 +83,28 @@ def ingest(req: IngestRequest):
                 cur.execute("SELECT COUNT(*) FROM chunk WHERE document_id = %s", (doc_id,))
                 count = cur.fetchone()[0]
         return IngestResponse(doc_id=doc_id, chunks=count)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/documents/{doc_id}", response_model=DeleteResponse)
+def delete_document(doc_id: str):
+    """Remove a document and its chunks. Recovery path for a mistaken ingest."""
+    import psycopg, os
+    try:
+        with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM document WHERE id = %s", (doc_id,))
+                if cur.fetchone() is None:
+                    raise HTTPException(status_code=404, detail=f"No document with id {doc_id}.")
+                # FK has no ON DELETE CASCADE; remove chunks first, then the document.
+                cur.execute("DELETE FROM chunk WHERE document_id = %s", (doc_id,))
+                deleted = cur.rowcount
+                cur.execute("DELETE FROM document WHERE id = %s", (doc_id,))
+            conn.commit()
+        return DeleteResponse(doc_id=doc_id, deleted_chunks=deleted)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
