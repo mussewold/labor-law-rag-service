@@ -1,4 +1,6 @@
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from ingest.ingestor import ingest_document
 from retrieval.hybrid import retrieve
@@ -7,6 +9,13 @@ from generation.generator import generate_answer
 from config import RETRIEVAL_K, RERANK_TOP_N
 
 app = FastAPI(title="Labour Law RAG API")
+
+FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "index.html"
+
+
+@app.get("/")
+def index():
+    return FileResponse(FRONTEND)
 
 # --- Request/Response models ---
 
@@ -27,6 +36,33 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     answer: str
     citations: list[str]
+
+class TraceChunk(BaseModel):
+    id: str
+    chunk_index: int
+    score: float | None = None
+    rrf_score: float | None = None
+    preview: str
+
+class VerboseResponse(BaseModel):
+    answer: str
+    citations: list[str]
+    retrieved: list[TraceChunk]
+    reranked: list[TraceChunk]
+    timings_ms: dict[str, float]
+
+
+def _trace(chunks: list[dict]) -> list[TraceChunk]:
+    return [
+        TraceChunk(
+            id=c["id"],
+            chunk_index=c["chunk_index"],
+            score=c.get("score"),
+            rrf_score=c.get("rrf_score"),
+            preview=c["content"][:240],
+        )
+        for c in chunks
+    ]
 
 # --- Endpoints ---
 
@@ -59,6 +95,33 @@ def query(req: QueryRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+@app.post("/query/verbose", response_model=VerboseResponse)
+def query_verbose(req: QueryRequest):
+    import time
+    try:
+        t0 = time.perf_counter()
+        candidates = retrieve(req.question, k=req.retrieval_k)
+        t1 = time.perf_counter()
+        top_chunks = rerank(req.question, candidates, top_n=req.rerank_top_n)
+        t2 = time.perf_counter()
+        result = generate_answer(req.question, top_chunks)
+        t3 = time.perf_counter()
+        return VerboseResponse(
+            answer=result["answer"],
+            citations=result["citations"],
+            retrieved=_trace(candidates),
+            reranked=_trace(top_chunks),
+            timings_ms={
+                "retrieve": round((t1 - t0) * 1000, 1),
+                "rerank": round((t2 - t1) * 1000, 1),
+                "generate": round((t3 - t2) * 1000, 1),
+                "total": round((t3 - t0) * 1000, 1),
+            },
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/health")

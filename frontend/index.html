@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Labour Law RAG</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e9ef;
+    --muted: #8a91a0;
+    --accent: #6c8cff;
+    --accent-2: #4f6ef0;
+    --ok: #3fb950;
+    --err: #f85149;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--ok); }
+  .dot.err { background: var(--err); }
+  main { max-width: 820px; margin: 0 auto; padding: 24px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab {
+    padding: 8px 16px; border: 1px solid var(--border); background: var(--panel);
+    color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 14px;
+  }
+  .tab.active { color: var(--text); border-color: var(--accent); background: var(--panel-2); }
+  .view { display: none; }
+  .view.active { display: block; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+  textarea, input {
+    width: 100%; background: var(--panel); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 12px; font-size: 14px;
+    font-family: inherit; resize: vertical;
+  }
+  textarea:focus, input:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 12px; margin-bottom: 14px; }
+  .row > div { flex: 1; }
+  .controls { display: flex; gap: 16px; align-items: center; margin: 14px 0; flex-wrap: wrap; }
+  .controls label { margin: 0; display: flex; align-items: center; gap: 6px; }
+  .controls input { width: 70px; }
+  button.go {
+    background: var(--accent-2); color: #fff; border: none; padding: 11px 22px;
+    border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  button.go:hover { background: var(--accent); }
+  button.go:disabled { opacity: 0.5; cursor: not-allowed; }
+  .answer {
+    margin-top: 22px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; display: none;
+  }
+  .answer.show { display: block; }
+  .answer h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .answer-text { white-space: pre-wrap; }
+  .citations { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .cite { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; word-break: break-all; }
+  .cite-chip {
+    display: inline-block; background: var(--panel-2); border: 1px solid var(--border);
+    padding: 3px 8px; border-radius: 6px; margin: 0 6px 6px 0;
+  }
+  .err-box { color: var(--err); margin-top: 14px; font-size: 14px; }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .switch { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  .switch input { width: auto; }
+  .steps { margin-top: 22px; display: none; }
+  .steps.show { display: block; }
+  .step {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 12px; overflow: hidden;
+  }
+  .step-head {
+    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
+    cursor: pointer; font-size: 14px; font-weight: 600;
+  }
+  .step-head .num {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent-2);
+    color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  .step-head .meta { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 400; }
+  .step-body { padding: 0 16px 14px; display: none; }
+  .step.open .step-body { display: block; }
+  .step.open .caret { transform: rotate(90deg); }
+  .caret { transition: transform .15s; color: var(--muted); }
+  .chunk {
+    border-top: 1px solid var(--border); padding: 10px 0; font-size: 13px;
+  }
+  .chunk:first-child { border-top: none; }
+  .chunk-meta { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; margin-bottom: 4px; }
+  .chunk-meta b { color: var(--accent); }
+  .chunk-text { color: var(--text); white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚖️ Labour Law RAG</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="status-text">checking…</span></div>
+</header>
+<main>
+  <div class="tabs">
+    <div class="tab active" data-tab="ask">Ask</div>
+    <div class="tab" data-tab="ingest">Ingest</div>
+  </div>
+
+  <!-- ASK -->
+  <section class="view active" id="view-ask">
+    <label for="q">Question</label>
+    <textarea id="q" rows="3" placeholder="e.g. How many days of annual leave is an employee entitled to?"></textarea>
+    <div class="controls">
+      <label>retrieval_k <input type="number" id="rk" value="20" min="1" max="100"></label>
+      <label>rerank_top_n <input type="number" id="rn" value="5" min="1" max="50"></label>
+      <label class="switch"><input type="checkbox" id="verbose"> Verbose</label>
+      <button class="go" id="ask-btn">Ask</button>
+    </div>
+    <div class="hint">Ctrl/Cmd + Enter to submit. Verbose shows retrieve → rerank → generate steps.</div>
+    <div class="steps" id="steps"></div>
+    <div class="answer" id="ans">
+      <h3>Answer</h3>
+      <div class="answer-text" id="ans-text"></div>
+      <div class="citations" id="cites"></div>
+    </div>
+    <div class="err-box" id="ask-err"></div>
+  </section>
+
+  <!-- INGEST -->
+  <section class="view" id="view-ingest">
+    <div class="row">
+      <div><label for="title">Title</label><input id="title" placeholder="Labour Proclamation"></div>
+      <div><label for="source">Source</label><input id="source" placeholder="proclamation.pdf"></div>
+    </div>
+    <label for="text">Document text</label>
+    <textarea id="text" rows="12" placeholder="Paste raw document text…"></textarea>
+    <div class="controls"><button class="go" id="ingest-btn">Ingest</button></div>
+    <div class="answer" id="ing-res">
+      <h3>Result</h3>
+      <div class="answer-text" id="ing-text"></div>
+    </div>
+    <div class="err-box" id="ing-err"></div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// health
+fetch("/health").then(r => r.json()).then(d => {
+  const ok = d.status === "ok";
+  $("dot").className = "dot " + (ok ? "ok" : "err");
+  $("status-text").textContent = ok ? "online" : "degraded";
+}).catch(() => {
+  $("dot").className = "dot err";
+  $("status-text").textContent = "offline";
+});
+
+// tabs
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x => x.classList.remove("active"));
+  t.classList.add("active");
+  $("view-" + t.dataset.tab).classList.add("active");
+});
+
+const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+function chunkHtml(c, i) {
+  const score = c.rrf_score != null ? `rrf ${c.rrf_score.toFixed(4)}`
+    : c.score != null ? `sim ${c.score.toFixed(4)}` : "";
+  return `<div class="chunk">
+    <div class="chunk-meta">#${i} · <b>${esc(c.id)}</b> · chunk_index ${c.chunk_index}${score ? " · " + score : ""}</div>
+    <div class="chunk-text">${esc(c.preview)}</div>
+  </div>`;
+}
+
+function step(num, title, meta, bodyHtml, open) {
+  return `<div class="step${open ? " open" : ""}">
+    <div class="step-head"><span class="num">${num}</span><span class="caret">▶</span>${title}
+      <span class="meta">${meta}</span></div>
+    <div class="step-body">${bodyHtml}</div>
+  </div>`;
+}
+
+function renderSteps(d) {
+  const t = d.timings_ms || {};
+  const html =
+    step(1, "Retrieve (hybrid RRF)", `${d.retrieved.length} chunks · ${t.retrieve}ms`,
+         d.retrieved.map(chunkHtml).join(""), true) +
+    step(2, "Rerank (LLM)", `${d.reranked.length} chunks · ${t.rerank}ms`,
+         d.reranked.map(chunkHtml).join(""), true) +
+    step(3, "Generate (LLM)", `${t.generate}ms · total ${t.total}ms`,
+         `<div class="chunk-text">${esc(d.answer)}</div>`, false);
+  const el = $("steps");
+  el.innerHTML = html;
+  el.classList.add("show");
+  el.querySelectorAll(".step-head").forEach(h =>
+    h.onclick = () => h.parentElement.classList.toggle("open"));
+}
+
+// ask
+async function ask() {
+  const question = $("q").value.trim();
+  $("ask-err").textContent = "";
+  if (!question) { $("ask-err").textContent = "Enter a question."; return; }
+  const verbose = $("verbose").checked;
+  const btn = $("ask-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Asking';
+  $("ans").classList.remove("show");
+  $("steps").classList.remove("show");
+  try {
+    const r = await fetch(verbose ? "/query/verbose" : "/query", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question,
+        retrieval_k: +$("rk").value,
+        rerank_top_n: +$("rn").value
+      })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status));
+    if (verbose) renderSteps(d);
+    $("ans-text").textContent = d.answer;
+    const cites = d.citations || [];
+    $("cites").innerHTML = cites.length
+      ? "<h3>Citations</h3>" + cites.map(c => `<span class="cite-chip cite">${esc(c)}</span>`).join("")
+      : "";
+    $("ans").classList.add("show");
+  } catch (e) {
+    $("ask-err").textContent = "Error: " + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "Ask";
+  }
+}
+$("ask-btn").onclick = ask;
+$("q").addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") ask();
+});
+
+// ingest
+$("ingest-btn").onclick = async () => {
+  const title = $("title").value.trim();
+  const source = $("source").value.trim();
+  const text = $("text").value.trim();
+  $("ing-err").textContent = "";
+  if (!title || !source || !text) { $("ing-err").textContent = "All fields required."; return; }
+  const btn = $("ingest-btn");
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Ingesting';
+  $("ing-res").classList.remove("show");
+  try {
+    const r = await fetch("/documents", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, source, text })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status));
+    $("ing-text").textContent = `Ingested. doc_id=${d.doc_id} — ${d.chunks} chunks.`;
+    $("ing-res").classList.add("show");
+  } catch (e) {
+    $("ing-err").textContent = "Error: " + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "Ingest";
+  }
+};
+</script>
+</body>
+</html>
