@@ -24,6 +24,11 @@ EMBEDDING_DIM = 4096
 RETRIEVAL_K = 20
 RERANK_TOP_N = 5
 
+# LLM output caps. OpenRouter pre-charges for max_tokens; leaving it unset
+# reserves the model's full context window (~65k) and can trip a 402.
+GENERATION_MAX_TOKENS = 1024
+RERANK_MAX_TOKENS = 64
+
 # Chunking
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50

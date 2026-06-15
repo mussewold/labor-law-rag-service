@@ -1,6 +1,6 @@
 import json
 from openai import OpenAI, RateLimitError
-from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, GENERATION_MODEL, GENERATION_MODEL_FALLBACK
+from config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, GENERATION_MODEL, GENERATION_MODEL_FALLBACK, GENERATION_MAX_TOKENS
 
 client = OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
 
@@ -33,7 +33,8 @@ Question: {query}"""
             response = client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0
+                temperature=0,
+                max_tokens=GENERATION_MAX_TOKENS
             )
             text = response.choices[0].message.content.strip()
             text = text.replace("```json", "").replace("```", "").strip()

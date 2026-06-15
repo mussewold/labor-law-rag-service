@@ -6,282 +6,643 @@
 <title>Labour Law RAG</title>
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #171a21;
-    --panel-2: #1e222b;
-    --border: #2a2f3a;
-    --text: #e6e9ef;
-    --muted: #8a91a0;
-    --accent: #6c8cff;
-    --accent-2: #4f6ef0;
-    --ok: #3fb950;
-    --err: #f85149;
+    /* Light reading surface for legal prose. Cool near-white bond tinted toward
+       the ink hue (265), one oxblood accent (hue 26) reserved for primary action /
+       links / focus. Semantic green/amber/red for state. Restrained strategy. */
+    --bg: oklch(98.6% 0.003 265);     /* cool paper */
+    --panel: oklch(96.8% 0.004 265);  /* raised surface */
+    --panel-2: oklch(93.8% 0.006 265);/* sunken / chip */
+    --border: oklch(88% 0.008 265);   /* hairline */
+    --text: oklch(27% 0.02 265);      /* ink */
+    --muted: oklch(50% 0.02 265);     /* secondary ink */
+    --accent: oklch(48% 0.13 26);     /* oxblood: links, focus, hairline accents */
+    --accent-2: oklch(45% 0.135 26);  /* oxblood: button resting */
+    --accent-strong: oklch(39% 0.14 26); /* oxblood: button hover */
+    --ok: oklch(48% 0.12 150);        /* success */
+    --warn: oklch(60% 0.12 70);       /* warning / confirm */
+    --err: oklch(50% 0.18 27);        /* error */
+    --danger: oklch(45% 0.17 27);     /* destructive */
+    --on-accent: oklch(98.5% 0.004 265); /* paper-tinted text on oxblood surfaces */
+
+    /* Type: serif carries the reading content (answers, statute chunks);
+       sans carries UI chrome; mono carries IDs, scores, timings. System
+       stacks only, so the tool stays readable offline on localhost. */
+    --font-serif: "Charter", "Iowan Old Style", "Source Serif Pro", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, Cambria, serif;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --text-xs: 0.6875rem;   /* 11px  eyebrow / section label */
+    --text-sm: 0.8125rem;   /* 13px  meta, hints, chips, ids */
+    --text-md: 0.9375rem;   /* 15px  controls, labels, buttons, tabs */
+    --text-base: 1.0625rem; /* 17px  reading body: answers + chunk prose */
+    --text-lg: 1.3125rem;   /* 21px  page title */
+
+    /* Spacing scale (4px base). Tight tokens group related controls;
+       large tokens separate distinct sections, for vertical rhythm. */
+    --space-2xs: 0.25rem;  /* 4  */
+    --space-xs: 0.5rem;    /* 8  */
+    --space-sm: 0.75rem;   /* 12 */
+    --space-md: 1rem;      /* 16 */
+    --space-lg: 1.5rem;    /* 24 */
+    --space-xl: 2.25rem;   /* 36 */
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-sans);
+    font-size: var(--text-md);
     background: var(--bg);
     color: var(--text);
     line-height: 1.5;
+    font-kerning: normal;
+    -webkit-font-smoothing: antialiased;
   }
   header {
-    padding: 18px 24px;
+    padding: var(--space-md) var(--space-lg);
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
-  .status { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  header h1 { font-size: var(--text-lg); margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  .status { font-size: var(--text-sm); color: var(--muted); display: flex; align-items: center; gap: var(--space-2xs); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: 0 0 auto; }
   .dot.ok { background: var(--ok); }
   .dot.err { background: var(--err); }
-  main { max-width: 820px; margin: 0 auto; padding: 24px; }
-  .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+  .status button {
+    background: none; border: none; color: var(--accent); cursor: pointer;
+    font-size: var(--text-sm); font-family: inherit; padding: 0; text-decoration: underline;
+  }
+  main { max-width: 820px; margin: 0 auto; padding: var(--space-lg); }
+  .tabs { display: flex; gap: var(--space-2xs); margin-bottom: var(--space-lg); }
   .tab {
-    padding: 8px 16px; border: 1px solid var(--border); background: var(--panel);
-    color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 14px;
+    padding: var(--space-xs) var(--space-md); border: 1px solid var(--border); background: var(--panel);
+    color: var(--muted); border-radius: 8px; cursor: pointer; font-size: var(--text-md);
+    font-family: inherit; font-weight: 500;
   }
   .tab.active { color: var(--text); border-color: var(--accent); background: var(--panel-2); }
+  .tab:hover:not(.active) { color: var(--text); border-color: var(--muted); }
+  .tab:focus-visible, .switch:focus-within, button:focus-visible,
+  summary:focus-visible, textarea:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  /* smooth interaction-state changes (color only; never layout properties) */
+  .tab, button.go, button.ghost, button.danger,
+  .advanced > summary, .status button {
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  }
+  ::placeholder { color: var(--muted); opacity: 1; }
   .view { display: none; }
   .view.active { display: block; }
-  label { display: block; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+  label { display: block; font-size: var(--text-sm); color: var(--muted); margin: 0 0 var(--space-xs); font-weight: 500; }
   textarea, input {
     width: 100%; background: var(--panel); border: 1px solid var(--border);
-    color: var(--text); border-radius: 8px; padding: 12px; font-size: 14px;
+    color: var(--text); border-radius: 8px; padding: var(--space-sm); font-size: var(--text-md);
     font-family: inherit; resize: vertical;
   }
+  /* the document-text field is long-form: read it in the serif */
+  #text { font-family: var(--font-serif); font-size: var(--text-base); line-height: 1.6; }
   textarea:focus, input:focus { outline: none; border-color: var(--accent); }
-  .row { display: flex; gap: 12px; margin-bottom: 14px; }
-  .row > div { flex: 1; }
-  .controls { display: flex; gap: 16px; align-items: center; margin: 14px 0; flex-wrap: wrap; }
-  .controls label { margin: 0; display: flex; align-items: center; gap: 6px; }
-  .controls input { width: 70px; }
-  button.go {
-    background: var(--accent-2); color: #fff; border: none; padding: 11px 22px;
-    border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
+  .row { display: flex; gap: var(--space-sm); margin-bottom: var(--space-md); flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 200px; }
+  /* primary action row: just Ask + Cancel, kept tight */
+  .controls { display: flex; gap: var(--space-sm); align-items: center; margin-top: var(--space-md); flex-wrap: wrap; }
+  /* progressive disclosure for retrieval tuning + verbose trace */
+  .advanced { margin-top: var(--space-sm); border-top: 1px solid var(--border); }
+  .advanced > summary {
+    list-style: none; cursor: pointer; padding: var(--space-sm) 0 0;
+    font-size: var(--text-sm); color: var(--muted); font-weight: 500;
+    display: flex; align-items: center; gap: var(--space-2xs); width: max-content;
   }
-  button.go:hover { background: var(--accent); }
+  .advanced > summary::-webkit-details-marker { display: none; }
+  .advanced > summary::before {
+    content: "▸"; color: var(--accent); transition: transform .15s; display: inline-block;
+  }
+  .advanced > summary:hover { color: var(--text); }
+  .advanced[open] > summary::before { transform: rotate(90deg); }
+  @media (prefers-reduced-motion: reduce) { .advanced > summary::before { transition: none; } }
+  .adv-body { display: flex; gap: var(--space-lg); align-items: center; flex-wrap: wrap; padding: var(--space-sm) 0 var(--space-2xs); }
+  .adv-body label { margin: 0; display: flex; align-items: center; gap: var(--space-xs); }
+  .adv-body input[type="number"] { width: 4.5rem; }
+  button.go {
+    background: var(--accent-2); color: var(--on-accent); border: none; padding: var(--space-sm) var(--space-lg);
+    border-radius: 8px; font-size: var(--text-md); font-weight: 600; cursor: pointer;
+    font-family: inherit;
+  }
+  button.go:hover { background: var(--accent-strong); }
+  button.go:active { background: var(--accent-strong); }
   button.go:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.ghost {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: var(--space-xs) var(--space-sm); border-radius: 8px; font-size: var(--text-md); cursor: pointer; font-family: inherit; font-weight: 500;
+  }
+  button.ghost:hover { border-color: var(--accent); }
+  button.danger {
+    background: none; color: var(--err); border: 1px solid var(--danger);
+    padding: var(--space-xs) var(--space-sm); border-radius: 8px; font-size: var(--text-md); cursor: pointer; font-family: inherit; font-weight: 500;
+  }
+  button.danger:hover { background: color-mix(in oklch, var(--danger) 12%, transparent); }
   .answer {
-    margin-top: 22px; background: var(--panel); border: 1px solid var(--border);
-    border-radius: 10px; padding: 18px; display: none;
+    margin-top: var(--space-lg); background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: var(--space-md) var(--space-lg); display: none;
   }
   .answer.show { display: block; }
-  .answer h3 { margin: 0 0 10px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-  .answer-text { white-space: pre-wrap; }
-  .citations { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
-  .cite { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; word-break: break-all; }
-  .cite-chip {
-    display: inline-block; background: var(--panel-2); border: 1px solid var(--border);
-    padding: 3px 8px; border-radius: 6px; margin: 0 6px 6px 0;
+  /* Visually-hidden but kept in the heading outline + as the aria-live label. */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
-  .err-box { color: var(--err); margin-top: 14px; font-size: 14px; }
+  /* Quiet inline labels (sentence case, no tracking; not eyebrow scaffolding). */
+  .answer h2, .citations h3 {
+    margin: 0 0 var(--space-xs); font-size: var(--text-sm); font-weight: 600; color: var(--muted);
+  }
+  /* The confirm step is a real warning-panel title: give it presence. */
+  .confirm h2 {
+    margin: 0 0 var(--space-xs); font-size: var(--text-md); font-weight: 650; color: var(--text);
+  }
+  .answer-text {
+    font-family: var(--font-serif); font-size: var(--text-base); line-height: 1.62;
+    max-width: 68ch; white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty;
+  }
+  .citations { margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border); }
+  /* A citation: source attribution + a collapsed preview of the quoted chunk,
+     expandable to the full text. Divider-separated (like the verbose chunk
+     list), not a nested card inside the answer panel. */
+  .cite { padding: var(--space-sm) 0; border-top: 1px solid var(--border); }
+  .cite:first-of-type { border-top: none; }
+  .cite > summary { list-style: none; cursor: pointer; display: block; }
+  .cite > summary::-webkit-details-marker { display: none; }
+  .cite-head {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2xs) var(--space-xs);
+    font-size: var(--text-sm); color: var(--text);
+  }
+  .cite-head .doc { font-weight: 600; }
+  .cite-head .src { color: var(--muted); }
+  .cite-head .pos { color: var(--muted); font-family: var(--font-mono); font-size: var(--text-xs); }
+  .cite-head .toggle { margin-left: auto; color: var(--accent); font-weight: 500; white-space: nowrap; }
+  .cite:not([open]) .cite-head .toggle::after { content: "Show more"; }
+  .cite[open] .cite-head .toggle::after { content: "Show less"; }
+  .cite-preview {
+    display: block; margin-top: var(--space-2xs); color: var(--muted);
+    font-family: var(--font-serif); font-size: var(--text-sm); line-height: 1.5; overflow-wrap: anywhere;
+  }
+  .cite[open] .cite-preview { display: none; }
+  .cite-body {
+    margin: var(--space-2xs) 0 0; font-family: var(--font-serif); font-size: var(--text-base); line-height: 1.55;
+    max-width: 68ch; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty;
+  }
+  .empty {
+    margin-top: var(--space-lg); padding: var(--space-xl) var(--space-md); text-align: center; color: var(--muted);
+    border: 1px dashed var(--border); border-radius: 10px; font-size: var(--text-md);
+  }
+  .empty.hide { display: none; }
+  .err-box {
+    color: var(--err); margin-top: var(--space-md); font-size: var(--text-md); display: none;
+    background: color-mix(in oklch, var(--err) 7%, var(--panel));
+    border: 1px solid color-mix(in oklch, var(--err) 32%, var(--border));
+    border-radius: 8px; padding: var(--space-sm) var(--space-md);
+  }
+  .err-box.show { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); }
+  .err-box .msg { overflow-wrap: anywhere; }
+  .err-box button { flex: 0 0 auto; }
+  /* neutral success notice (e.g. a completed delete); not the red error box */
+  .notice {
+    color: var(--ok); margin-top: var(--space-md); font-size: var(--text-md); display: none;
+    background: color-mix(in oklch, var(--ok) 8%, var(--panel));
+    border: 1px solid color-mix(in oklch, var(--ok) 30%, var(--border));
+    border-radius: 8px; padding: var(--space-sm) var(--space-md); overflow-wrap: anywhere;
+  }
+  .notice.show { display: block; }
+  .confirm {
+    margin-top: var(--space-md); background: var(--panel-2); border: 1px solid var(--warn);
+    border-radius: 10px; padding: var(--space-md); display: none;
+  }
+  .confirm.show { display: block; }
+  .confirm dl { margin: 0 0 var(--space-md); display: grid; grid-template-columns: auto 1fr; gap: var(--space-2xs) var(--space-sm); font-size: var(--text-md); }
+  .confirm dt { color: var(--muted); }
+  .confirm dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .confirm > .hint { margin-top: 0; }
   .spinner {
-    display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.3);
-    border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid color-mix(in oklch, var(--on-accent) 35%, transparent);
+    border-top-color: var(--on-accent); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
-  .switch { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .spinner { animation-duration: 1.6s; }
+    .caret, .tab, button.go, button.ghost, button.danger,
+    .advanced > summary, .status button { transition: none; }
+  }
+  .hint { font-size: var(--text-sm); color: var(--muted); margin-top: var(--space-xs); }
+  .switch { display: flex; align-items: center; gap: var(--space-2xs); cursor: pointer; user-select: none; }
   .switch input { width: auto; }
-  .steps { margin-top: 22px; display: none; }
+  .doc-meta { font-size: var(--text-sm); color: var(--muted); font-family: var(--font-mono); overflow-wrap: anywhere; }
+  .copied { color: var(--ok); font-size: var(--text-sm); margin-left: var(--space-xs); }
+  .steps { margin-top: var(--space-lg); display: none; }
   .steps.show { display: block; }
   .step {
     background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-    margin-bottom: 12px; overflow: hidden;
+    margin-bottom: var(--space-sm); overflow: hidden;
   }
   .step-head {
-    display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-    cursor: pointer; font-size: 14px; font-weight: 600;
+    display: flex; align-items: center; gap: var(--space-xs); padding: var(--space-sm) var(--space-md);
+    cursor: pointer; font-size: var(--text-md); font-weight: 600; width: 100%;
+    background: none; border: none; color: inherit; font-family: inherit; text-align: left;
   }
   .step-head .num {
     width: 22px; height: 22px; border-radius: 50%; background: var(--accent-2);
-    color: #fff; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+    color: var(--on-accent); font-size: var(--text-sm); font-weight: 600;
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
   }
-  .step-head .meta { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 400; }
-  .step-body { padding: 0 16px 14px; display: none; }
+  .step-head .meta {
+    margin-left: auto; font-size: var(--text-sm); color: var(--muted); font-weight: 400;
+    font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  }
+  .step-body { padding: 0 var(--space-md) var(--space-sm); display: none; }
   .step.open .step-body { display: block; }
   .step.open .caret { transform: rotate(90deg); }
   .caret { transition: transform .15s; color: var(--muted); }
-  .chunk {
-    border-top: 1px solid var(--border); padding: 10px 0; font-size: 13px;
-  }
+  .chunk { border-top: 1px solid var(--border); padding: var(--space-sm) 0; }
   .chunk:first-child { border-top: none; }
-  .chunk-meta { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; margin-bottom: 4px; }
+  .chunk-meta {
+    font-size: var(--text-xs); color: var(--muted); font-family: var(--font-mono);
+    margin-bottom: var(--space-2xs); overflow-wrap: anywhere; font-variant-numeric: tabular-nums;
+  }
   .chunk-meta b { color: var(--accent); }
-  .chunk-text { color: var(--text); white-space: pre-wrap; }
+  .chunk-text {
+    font-family: var(--font-serif); font-size: var(--text-base); line-height: 1.55;
+    max-width: 68ch; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; text-wrap: pretty;
+  }
+  .actions { display: flex; gap: var(--space-sm); flex-wrap: wrap; align-items: center; }
+  .answer .actions { margin-top: var(--space-md); }
+  .controls > .hint { margin-top: 0; }
+
+  /* Touch input: 44px minimum tap targets + roomier spacing on coarse
+     pointers (phones, tablets), leaving the compact desktop sizing intact. */
+  @media (pointer: coarse) {
+    .tab, button.go, button.ghost, button.danger,
+    textarea, input, .adv-body input[type="number"] { min-height: 44px; }
+    #retry-health { display: inline-flex; align-items: center; min-height: 44px; padding-inline: var(--space-2xs); }
+    .tabs { gap: var(--space-xs); }
+    .switch { min-height: 44px; }
+  }
+
+  /* Narrow viewports: tighten the frame, let action rows wrap before clipping. */
+  @media (max-width: 600px) {
+    header { padding: var(--space-sm) var(--space-md); }
+    main { padding: var(--space-md); }
+    .err-box.show { flex-wrap: wrap; }
+    .adv-body { gap: var(--space-md); }
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>⚖️ Labour Law RAG</h1>
-  <div class="status"><span class="dot" id="dot"></span><span id="status-text">checking…</span></div>
+  <h1><span aria-hidden="true">⚖️ </span>Labour Law RAG</h1>
+  <div class="status">
+    <span class="dot" id="dot" aria-hidden="true"></span>
+    <span id="status-text" role="status" aria-live="polite">checking…</span>
+    <button id="retry-health" hidden>Retry</button>
+  </div>
 </header>
 <main>
-  <div class="tabs">
-    <div class="tab active" data-tab="ask">Ask</div>
-    <div class="tab" data-tab="ingest">Ingest</div>
+  <div class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab active" role="tab" id="tab-ask" aria-selected="true" aria-controls="view-ask" data-tab="ask">Ask</button>
+    <button class="tab" role="tab" id="tab-ingest" aria-selected="false" aria-controls="view-ingest" data-tab="ingest" tabindex="-1">Ingest</button>
   </div>
 
   <!-- ASK -->
-  <section class="view active" id="view-ask">
+  <section class="view active" id="view-ask" role="tabpanel" aria-labelledby="tab-ask">
     <label for="q">Question</label>
-    <textarea id="q" rows="3" placeholder="e.g. How many days of annual leave is an employee entitled to?"></textarea>
+    <textarea id="q" rows="3" maxlength="2000" placeholder="e.g. How many days of annual leave is an employee entitled to?"></textarea>
     <div class="controls">
-      <label>retrieval_k <input type="number" id="rk" value="20" min="1" max="100"></label>
-      <label>rerank_top_n <input type="number" id="rn" value="5" min="1" max="50"></label>
-      <label class="switch"><input type="checkbox" id="verbose"> Verbose</label>
       <button class="go" id="ask-btn">Ask</button>
+      <button class="ghost" id="cancel-btn" hidden>Cancel</button>
+      <span class="hint">Ctrl/Cmd + Enter to submit.</span>
     </div>
-    <div class="hint">Ctrl/Cmd + Enter to submit. Verbose shows retrieve → rerank → generate steps.</div>
+    <details class="advanced">
+      <summary>Advanced</summary>
+      <div class="adv-body">
+        <label>retrieval_k <input type="number" id="rk" value="20" min="1" max="100"></label>
+        <label>rerank_top_n <input type="number" id="rn" value="5" min="1" max="50"></label>
+        <label class="switch"><input type="checkbox" id="verbose"> Verbose trace</label>
+      </div>
+      <div class="hint">rerank_top_n is clamped to retrieval_k. Verbose shows the retrieve → rerank → generate steps with per-stage timings.</div>
+    </details>
     <div class="steps" id="steps"></div>
-    <div class="answer" id="ans">
-      <h3>Answer</h3>
+    <div class="answer" id="ans" aria-live="polite">
+      <h2 class="sr-only">Answer</h2>
       <div class="answer-text" id="ans-text"></div>
       <div class="citations" id="cites"></div>
     </div>
-    <div class="err-box" id="ask-err"></div>
+    <div class="empty" id="ask-empty">Ask a question to see the answer and its source citations.</div>
+    <div class="err-box" id="ask-err" role="alert"><span class="msg" id="ask-err-msg"></span><button class="ghost" id="ask-retry">Retry</button></div>
   </section>
 
   <!-- INGEST -->
-  <section class="view" id="view-ingest">
+  <section class="view" id="view-ingest" role="tabpanel" aria-labelledby="tab-ingest" hidden>
     <div class="row">
-      <div><label for="title">Title</label><input id="title" placeholder="Labour Proclamation"></div>
-      <div><label for="source">Source</label><input id="source" placeholder="proclamation.pdf"></div>
+      <div><label for="title">Title</label><input id="title" maxlength="300" placeholder="Labour Proclamation"></div>
+      <div><label for="source">Source</label><input id="source" maxlength="300" placeholder="proclamation.pdf"></div>
     </div>
     <label for="text">Document text</label>
     <textarea id="text" rows="12" placeholder="Paste raw document text…"></textarea>
-    <div class="controls"><button class="go" id="ingest-btn">Ingest</button></div>
-    <div class="answer" id="ing-res">
-      <h3>Result</h3>
-      <div class="answer-text" id="ing-text"></div>
+    <div class="controls"><button class="go" id="ingest-btn">Review &amp; ingest</button></div>
+
+    <!-- confirm step: ingest is an irreversible write -->
+    <div class="confirm" id="ing-confirm">
+      <h2>Confirm ingest</h2>
+      <p class="hint">This writes to the corpus and affects future answers. Review before committing.</p>
+      <dl>
+        <dt>Title</dt><dd id="cf-title"></dd>
+        <dt>Source</dt><dd id="cf-source"></dd>
+        <dt>Length</dt><dd id="cf-len"></dd>
+        <dt>Est. chunks</dt><dd id="cf-chunks"></dd>
+      </dl>
+      <div class="actions">
+        <button class="go" id="ing-commit">Commit ingest</button>
+        <button class="ghost" id="ing-back">Back</button>
+      </div>
     </div>
-    <div class="err-box" id="ing-err"></div>
+
+    <div class="answer" id="ing-res">
+      <h2>Ingested</h2>
+      <div class="answer-text" id="ing-text"></div>
+      <div class="doc-meta" id="ing-docid"></div>
+      <div class="actions">
+        <button class="ghost" id="ing-copy">Copy doc_id</button>
+        <button class="danger" id="ing-delete">Delete this document</button>
+        <span class="copied" id="ing-copied" hidden>copied</span>
+      </div>
+    </div>
+    <div class="err-box" id="ing-err" role="alert"><span class="msg" id="ing-err-msg"></span></div>
+    <div class="notice" id="ing-note" role="status" aria-live="polite"></div>
   </section>
 </main>
 
 <script>
 const $ = id => document.getElementById(id);
+const CHUNK_SIZE = 500; // mirrors config.py for the estimate only
 
-// health
-fetch("/health").then(r => r.json()).then(d => {
-  const ok = d.status === "ok";
-  $("dot").className = "dot " + (ok ? "ok" : "err");
-  $("status-text").textContent = ok ? "online" : "degraded";
-}).catch(() => {
-  $("dot").className = "dot err";
-  $("status-text").textContent = "offline";
+let online = false;
+
+// --- error helpers ---
+function humanError(e, status, detail) {
+  if (e && e.name === "AbortError") return null; // user cancelled, not an error
+  if (e instanceof TypeError) return "Cannot reach the server. Is the API running?";
+  if (status === 400) return detail || "Invalid input.";
+  if (status === 404) return detail || "Not found.";
+  if (status === 422) return "The request was rejected. Check the fields and try again.";
+  if (status === 429) return "Rate limited upstream. Wait a moment and retry.";
+  if (status >= 500) return "The server hit an error while processing this. Retry, or check the API logs.";
+  return detail || (e && e.message) || "Something went wrong.";
+}
+function showErr(boxId, msgId, text) {
+  if (text == null) return;
+  $(msgId).textContent = text;
+  $(boxId).classList.add("show");
+}
+function clearErr(boxId) { $(boxId).classList.remove("show"); }
+
+async function postJSON(url, body, signal) {
+  const r = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body), signal
+  });
+  let data = null;
+  try { data = await r.json(); } catch { /* non-JSON body */ }
+  if (!r.ok) {
+    const msg = humanError(null, r.status, data && data.detail);
+    const err = new Error(msg); err.handled = true; throw err;
+  }
+  return data;
+}
+
+// --- health ---
+async function checkHealth() {
+  $("dot").className = "dot";
+  $("status-text").textContent = "checking…";
+  $("retry-health").hidden = true;
+  try {
+    const r = await fetch("/health");
+    const d = await r.json();
+    online = d.status === "ok";
+  } catch { online = false; }
+  $("dot").className = "dot " + (online ? "ok" : "err");
+  $("status-text").textContent = online ? "online" : "offline";
+  $("retry-health").hidden = online;
+  syncEnabled();
+}
+function syncEnabled() {
+  $("ask-btn").disabled = !online;
+  $("ingest-btn").disabled = !online;
+  $("ask-btn").title = online ? "" : "API offline";
+  $("ingest-btn").title = online ? "" : "API offline";
+}
+$("retry-health").onclick = checkHealth;
+checkHealth();
+
+// --- tabs (keyboard accessible) ---
+const tabs = [...document.querySelectorAll(".tab")];
+function selectTab(tab) {
+  tabs.forEach(t => {
+    const on = t === tab;
+    t.classList.toggle("active", on);
+    t.setAttribute("aria-selected", on);
+    t.tabIndex = on ? 0 : -1;
+    const panel = $(t.getAttribute("aria-controls"));
+    panel.classList.toggle("active", on);
+    panel.hidden = !on;
+  });
+}
+tabs.forEach((t, i) => {
+  t.onclick = () => selectTab(t);
+  t.onkeydown = e => {
+    let target = null;
+    if (e.key === "ArrowRight") target = tabs[(i + 1) % tabs.length];
+    else if (e.key === "ArrowLeft") target = tabs[(i + tabs.length - 1) % tabs.length];
+    else if (e.key === "Home") target = tabs[0];
+    else if (e.key === "End") target = tabs[tabs.length - 1];
+    if (target) { e.preventDefault(); target.focus(); selectTab(target); }
+  };
 });
 
-// tabs
-document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-  document.querySelectorAll(".view").forEach(x => x.classList.remove("active"));
-  t.classList.add("active");
-  $("view-" + t.dataset.tab).classList.add("active");
-});
-
-const esc = s => s.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const ms = v => (typeof v === "number" ? v + "ms" : "—");
 
 function chunkHtml(c, i) {
   const score = c.rrf_score != null ? `rrf ${c.rrf_score.toFixed(4)}`
     : c.score != null ? `sim ${c.score.toFixed(4)}` : "";
   return `<div class="chunk">
-    <div class="chunk-meta">#${i} · <b>${esc(c.id)}</b> · chunk_index ${c.chunk_index}${score ? " · " + score : ""}</div>
+    <div class="chunk-meta">#${i} · <b>${esc(c.id)}</b> · chunk_index ${esc(c.chunk_index)}${score ? " · " + score : ""}</div>
     <div class="chunk-text">${esc(c.preview)}</div>
   </div>`;
 }
-
+function citeHtml(c) {
+  const doc = c.document_title || c.source || "Unknown source";
+  const src = c.source && c.document_title ? `<span class="src">${esc(c.source)}</span>` : "";
+  const flat = String(c.content).replace(/\s+/g, " ").trim();
+  const preview = flat.length > 160 ? flat.slice(0, 160) + "…" : flat;
+  return `<details class="cite">
+    <summary>
+      <span class="cite-head">
+        <span class="doc">${esc(doc)}</span>${src}
+        <span class="pos">chunk ${esc(c.chunk_index)}</span>
+        <span class="toggle" aria-hidden="true"></span>
+      </span>
+      <span class="cite-preview">${esc(preview)}</span>
+    </summary>
+    <blockquote class="cite-body">${esc(c.content)}</blockquote>
+  </details>`;
+}
 function step(num, title, meta, bodyHtml, open) {
   return `<div class="step${open ? " open" : ""}">
-    <div class="step-head"><span class="num">${num}</span><span class="caret">▶</span>${title}
-      <span class="meta">${meta}</span></div>
+    <button class="step-head" aria-expanded="${open}"><span class="num" aria-hidden="true">${num}</span><span class="caret" aria-hidden="true">▶</span>Step ${num}: ${title}
+      <span class="meta">${meta}</span></button>
     <div class="step-body">${bodyHtml}</div>
   </div>`;
 }
-
 function renderSteps(d) {
   const t = d.timings_ms || {};
   const html =
-    step(1, "Retrieve (hybrid RRF)", `${d.retrieved.length} chunks · ${t.retrieve}ms`,
-         d.retrieved.map(chunkHtml).join(""), true) +
-    step(2, "Rerank (LLM)", `${d.reranked.length} chunks · ${t.rerank}ms`,
-         d.reranked.map(chunkHtml).join(""), true) +
-    step(3, "Generate (LLM)", `${t.generate}ms · total ${t.total}ms`,
+    step(1, "Retrieve (hybrid RRF)", `${d.retrieved.length} chunks · ${ms(t.retrieve)}`,
+         d.retrieved.length ? d.retrieved.map(chunkHtml).join("") : '<div class="chunk-text">No chunks retrieved.</div>', true) +
+    step(2, "Rerank (LLM)", `${d.reranked.length} chunks · ${ms(t.rerank)}`,
+         d.reranked.length ? d.reranked.map(chunkHtml).join("") : '<div class="chunk-text">No chunks survived rerank.</div>', true) +
+    step(3, "Generate (LLM)", `${ms(t.generate)} · total ${ms(t.total)}`,
          `<div class="chunk-text">${esc(d.answer)}</div>`, false);
   const el = $("steps");
   el.innerHTML = html;
   el.classList.add("show");
-  el.querySelectorAll(".step-head").forEach(h =>
-    h.onclick = () => h.parentElement.classList.toggle("open"));
+  el.querySelectorAll(".step-head").forEach(h => h.onclick = () => {
+    const open = h.parentElement.classList.toggle("open");
+    h.setAttribute("aria-expanded", open);
+  });
 }
 
-// ask
+// --- ask ---
+let askController = null;
+
 async function ask() {
   const question = $("q").value.trim();
-  $("ask-err").textContent = "";
-  if (!question) { $("ask-err").textContent = "Enter a question."; return; }
+  clearErr("ask-err");
+  if (!question) { showErr("ask-err", "ask-err-msg", "Enter a question."); return; }
+  if (!online) { showErr("ask-err", "ask-err-msg", "API is offline."); return; }
+
+  // clamp rerank_top_n to retrieval_k
+  const rk = Math.max(1, +$("rk").value || 20);
+  let rn = Math.max(1, +$("rn").value || 5);
+  if (rn > rk) { rn = rk; $("rn").value = rn; }
+
   const verbose = $("verbose").checked;
   const btn = $("ask-btn");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Asking';
+  askController = new AbortController();
+  btn.disabled = true; btn.setAttribute("aria-busy", "true");
+  btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Asking';
+  $("cancel-btn").hidden = false;
   $("ans").classList.remove("show");
   $("steps").classList.remove("show");
+  $("ask-empty").classList.add("hide");
   try {
-    const r = await fetch(verbose ? "/query/verbose" : "/query", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        question,
-        retrieval_k: +$("rk").value,
-        rerank_top_n: +$("rn").value
-      })
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status));
+    const d = await postJSON(verbose ? "/query/verbose" : "/query",
+      { question, retrieval_k: rk, rerank_top_n: rn }, askController.signal);
     if (verbose) renderSteps(d);
     $("ans-text").textContent = d.answer;
     const cites = d.citations || [];
     $("cites").innerHTML = cites.length
-      ? "<h3>Citations</h3>" + cites.map(c => `<span class="cite-chip cite">${esc(c)}</span>`).join("")
-      : "";
+      ? "<h3>Citations</h3>" + cites.map(citeHtml).join("")
+      : '<span class="hint">No citations returned.</span>';
     $("ans").classList.add("show");
   } catch (e) {
-    $("ask-err").textContent = "Error: " + e.message;
+    const msg = e.handled ? e.message : humanError(e);
+    if (msg === null) { // aborted
+      $("ask-empty").classList.remove("hide");
+    } else {
+      showErr("ask-err", "ask-err-msg", msg);
+    }
   } finally {
-    btn.disabled = false; btn.textContent = "Ask";
+    askController = null;
+    btn.disabled = !online; btn.removeAttribute("aria-busy"); btn.textContent = "Ask";
+    $("cancel-btn").hidden = true;
   }
 }
 $("ask-btn").onclick = ask;
+$("ask-retry").onclick = ask;
+$("cancel-btn").onclick = () => askController && askController.abort();
 $("q").addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") ask();
 });
 
-// ingest
-$("ingest-btn").onclick = async () => {
+// --- ingest: review → confirm → commit ---
+function showConfirm() {
   const title = $("title").value.trim();
   const source = $("source").value.trim();
   const text = $("text").value.trim();
-  $("ing-err").textContent = "";
-  if (!title || !source || !text) { $("ing-err").textContent = "All fields required."; return; }
-  const btn = $("ingest-btn");
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Ingesting';
+  clearErr("ing-err");
+  $("ing-note").classList.remove("show");
   $("ing-res").classList.remove("show");
+  if (!title || !source || !text) {
+    showErr("ing-err", "ing-err-msg", "Title, source, and document text are all required.");
+    return;
+  }
+  $("cf-title").textContent = title;
+  $("cf-source").textContent = source;
+  $("cf-len").textContent = text.length.toLocaleString() + " characters";
+  $("cf-chunks").textContent = "~" + Math.max(1, Math.ceil(text.length / CHUNK_SIZE));
+  $("ing-confirm").classList.add("show");
+}
+async function commitIngest() {
+  const title = $("title").value.trim();
+  const source = $("source").value.trim();
+  const text = $("text").value.trim();
+  const btn = $("ing-commit");
+  btn.disabled = true; btn.setAttribute("aria-busy", "true");
+  btn.innerHTML = '<span class="spinner" aria-hidden="true"></span> Ingesting';
   try {
-    const r = await fetch("/documents", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, source, text })
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || ("HTTP " + r.status));
-    $("ing-text").textContent = `Ingested. doc_id=${d.doc_id} — ${d.chunks} chunks.`;
+    const d = await postJSON("/documents", { title, source, text });
+    $("ing-confirm").classList.remove("show");
+    $("ing-text").textContent = `${d.chunks} chunk${d.chunks === 1 ? "" : "s"} written.`;
+    $("ing-docid").textContent = "doc_id: " + d.doc_id;
+    $("ing-docid").dataset.id = d.doc_id;
+    $("ing-copied").hidden = true;
     $("ing-res").classList.add("show");
   } catch (e) {
-    $("ing-err").textContent = "Error: " + e.message;
+    showErr("ing-err", "ing-err-msg", e.handled ? e.message : humanError(e));
   } finally {
-    btn.disabled = false; btn.textContent = "Ingest";
+    btn.disabled = false; btn.removeAttribute("aria-busy"); btn.textContent = "Commit ingest";
+  }
+}
+$("ingest-btn").onclick = showConfirm;
+$("ing-commit").onclick = commitIngest;
+$("ing-back").onclick = () => $("ing-confirm").classList.remove("show");
+
+$("ing-copy").onclick = async () => {
+  const id = $("ing-docid").dataset.id;
+  try { await navigator.clipboard.writeText(id); $("ing-copied").hidden = false; }
+  catch { /* clipboard blocked */ }
+};
+$("ing-delete").onclick = async () => {
+  const id = $("ing-docid").dataset.id;
+  if (!confirm(`Delete document ${id} and all its chunks? This cannot be undone.`)) return;
+  const btn = $("ing-delete");
+  btn.disabled = true; btn.textContent = "Deleting…";
+  try {
+    const d = await postDelete(id);
+    $("ing-res").classList.remove("show");
+    $("ing-note").textContent = `Deleted ${d.doc_id} (${d.deleted_chunks} chunk${d.deleted_chunks === 1 ? "" : "s"} removed).`;
+    $("ing-note").classList.add("show");
+  } catch (e) {
+    showErr("ing-err", "ing-err-msg", e.handled ? e.message : humanError(e));
+  } finally {
+    btn.disabled = false; btn.textContent = "Delete this document";
   }
 };
+async function postDelete(id) {
+  const r = await fetch("/documents/" + encodeURIComponent(id), { method: "DELETE" });
+  let data = null;
+  try { data = await r.json(); } catch {}
+  if (!r.ok) { const err = new Error(humanError(null, r.status, data && data.detail)); err.handled = true; throw err; }
+  return data;
+}
 </script>
 </body>
 </html>

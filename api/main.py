@@ -15,7 +15,8 @@ FRONTEND = Path(__file__).resolve().parent.parent / "frontend" / "index.html"
 
 @app.get("/")
 def index():
-    return FileResponse(FRONTEND)
+    # no-store: the single-file UI changes often; never let the browser serve a stale copy.
+    return FileResponse(FRONTEND, headers={"Cache-Control": "no-store"})
 
 # --- Request/Response models ---
 
@@ -28,14 +29,25 @@ class IngestResponse(BaseModel):
     doc_id: str
     chunks: int
 
+class DeleteResponse(BaseModel):
+    doc_id: str
+    deleted_chunks: int
+
 class QueryRequest(BaseModel):
     question: str
     retrieval_k: int = RETRIEVAL_K
     rerank_top_n: int = RERANK_TOP_N
 
+class Citation(BaseModel):
+    chunk_id: str
+    document_title: str | None = None
+    source: str | None = None
+    chunk_index: int
+    content: str
+
 class QueryResponse(BaseModel):
     answer: str
-    citations: list[str]
+    citations: list[Citation]
 
 class TraceChunk(BaseModel):
     id: str
@@ -46,10 +58,46 @@ class TraceChunk(BaseModel):
 
 class VerboseResponse(BaseModel):
     answer: str
-    citations: list[str]
+    citations: list[Citation]
     retrieved: list[TraceChunk]
     reranked: list[TraceChunk]
     timings_ms: dict[str, float]
+
+
+def resolve_citations(cited: list[str], chunks: list[dict]) -> list[Citation]:
+    """Map the chunk IDs the LLM cited back to their content + parent document.
+    Resolves against the reranked chunks already in hand, so a hallucinated ID
+    (one not actually retrieved) is dropped rather than surfaced."""
+    norm = set()
+    for c in cited:
+        cid = str(c).strip()
+        if cid.upper().startswith("CHUNK "):
+            cid = cid[6:].strip()
+        norm.add(cid)
+    picked = [c for c in chunks if c["id"] in norm]
+    if not picked:
+        return []
+
+    import psycopg, os
+    doc_ids = list({c["document_id"] for c in picked})
+    docs: dict[str, tuple] = {}
+    with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, title, source FROM document WHERE id = ANY(%s)", (doc_ids,))
+            for r in cur.fetchall():
+                docs[r[0]] = (r[1], r[2])
+
+    out = []
+    for c in picked:
+        title, source = docs.get(c["document_id"], (None, None))
+        out.append(Citation(
+            chunk_id=c["id"],
+            document_title=title,
+            source=source,
+            chunk_index=c["chunk_index"],
+            content=c["content"],
+        ))
+    return out
 
 
 def _trace(chunks: list[dict]) -> list[TraceChunk]:
@@ -68,6 +116,8 @@ def _trace(chunks: list[dict]) -> list[TraceChunk]:
 
 @app.post("/documents", response_model=IngestResponse)
 def ingest(req: IngestRequest):
+    if not req.title.strip() or not req.source.strip() or not req.text.strip():
+        raise HTTPException(status_code=400, detail="title, source, and text are all required.")
     try:
         doc_id = ingest_document(req.title, req.source, req.text)
         # count chunks for response
@@ -81,6 +131,28 @@ def ingest(req: IngestRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/documents/{doc_id}", response_model=DeleteResponse)
+def delete_document(doc_id: str):
+    """Remove a document and its chunks. Recovery path for a mistaken ingest."""
+    import psycopg, os
+    try:
+        with psycopg.connect(os.environ["DATABASE_URL"]) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM document WHERE id = %s", (doc_id,))
+                if cur.fetchone() is None:
+                    raise HTTPException(status_code=404, detail=f"No document with id {doc_id}.")
+                # FK has no ON DELETE CASCADE; remove chunks first, then the document.
+                cur.execute("DELETE FROM chunk WHERE document_id = %s", (doc_id,))
+                deleted = cur.rowcount
+                cur.execute("DELETE FROM document WHERE id = %s", (doc_id,))
+            conn.commit()
+        return DeleteResponse(doc_id=doc_id, deleted_chunks=deleted)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 
 @app.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest):
@@ -90,7 +162,7 @@ def query(req: QueryRequest):
         result = generate_answer(req.question, top_chunks)
         return QueryResponse(
             answer=result["answer"],
-            citations=result["citations"]
+            citations=resolve_citations(result["citations"], top_chunks)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -110,7 +182,7 @@ def query_verbose(req: QueryRequest):
         t3 = time.perf_counter()
         return VerboseResponse(
             answer=result["answer"],
-            citations=result["citations"],
+            citations=resolve_citations(result["citations"], top_chunks),
             retrieved=_trace(candidates),
             reranked=_trace(top_chunks),
             timings_ms={
