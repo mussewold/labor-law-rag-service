@@ -8,6 +8,14 @@ It combines **hybrid retrieval** (dense vector search + keyword full-text search
 merged with Reciprocal Rank Fusion), **LLM reranking**, and **grounded generation**
 that answers strictly from retrieved context and cites the chunks it used.
 
+
+
+![labor_law_rag_screenshot](readme_image/labor_law_rag_screenshot.png)
+
+
+
+
+
 ---
 
 ## Features
